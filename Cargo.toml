@@ -1,0 +1,27 @@
+[package]
+name = "cross-chain-transfer-reconciliation-gateway"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+
+
+[workspace]
+members = [
+    "apps/api",
+    "apps/worker",
+    "apps/reconciler",
+    "apps/operator",
+    "crates/domain",
+    "crates/application",
+    "crates/persistence",
+    "crates/source_tracking",
+    "crates/relay_tracking",
+    "crates/destination_tracking",
+    "crates/reconciliation",
+    "crates/exceptions",
+    "crates/receipts",
+    "crates/shared",
+    "crates/config",
+]
+resolver = "2"
