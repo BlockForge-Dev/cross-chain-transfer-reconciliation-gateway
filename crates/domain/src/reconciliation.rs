@@ -3,14 +3,14 @@ use serde::{ Deserialize, Serialize };
 
 use crate::{ EvidenceSource, TransferState };
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ReconciliationComparison {
     Matched,
     Mismatch,
     Unresolved,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ReconciliationDecision {
     ConfirmSettled,
     KeepPending,

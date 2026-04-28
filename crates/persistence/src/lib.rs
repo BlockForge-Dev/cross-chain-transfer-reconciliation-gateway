@@ -1,6 +1,9 @@
-#![forbid(unsafe_code)]
+pub mod db;
+pub mod error;
+pub mod repository;
+pub mod rows;
 
-/// Persistence boundary for durable truth storage.
-///
-/// Milestone 0 intentionally keeps this crate minimal.
-pub const CRATE_NAME: &str = "persistence";
+pub use db::*;
+pub use error::*;
+pub use repository::*;
+pub use rows::*;
