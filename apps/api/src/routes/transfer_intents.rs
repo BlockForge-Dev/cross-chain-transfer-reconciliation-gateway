@@ -61,7 +61,7 @@ pub async fn create_transfer_intent(
         received_at: Utc::now(),
     };
 
-    let result = state.service.create_transfer(command).await?;
+    let result = state.transfer_intent_service.create_transfer(command).await?;
 
     match result {
         CreateTransferIntentResult::Created(transfer) =>
@@ -77,11 +77,14 @@ pub async fn get_transfer_intent(
     Path(id): Path<Uuid>
 ) -> Result<Json<TransferIntentResponse>, ApiError> {
     authenticate(&headers, &state.api_bearer_token)?;
-    let transfer = state.service.get_transfer(id).await?;
+    let transfer = state.transfer_intent_service.get_transfer(id).await?;
     Ok(Json(to_response(transfer, "queried")))
 }
 
-fn to_response(transfer: TransferIntent, idempotency_status: &str) -> TransferIntentResponse {
+pub(crate) fn to_response(
+    transfer: TransferIntent,
+    idempotency_status: &str
+) -> TransferIntentResponse {
     TransferIntentResponse {
         transfer_id: transfer.id,
         client_transfer_reference: transfer.client_transfer_reference.0,
@@ -101,7 +104,7 @@ fn to_response(transfer: TransferIntent, idempotency_status: &str) -> TransferIn
     }
 }
 
-fn authenticate(headers: &HeaderMap, expected_token: &str) -> Result<(), ApiError> {
+pub(crate) fn authenticate(headers: &HeaderMap, expected_token: &str) -> Result<(), ApiError> {
     let auth = headers
         .get(AUTHORIZATION)
         .and_then(|value| value.to_str().ok())

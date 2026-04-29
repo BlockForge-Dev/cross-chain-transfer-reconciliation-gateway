@@ -26,7 +26,6 @@ use domain::{
 use serde::{ Deserialize, Serialize };
 use serde_json::{ json, Value };
 use sqlx::{ PgPool, Postgres, Transaction };
-use uuid::Uuid;
 
 use crate::error::PersistenceError;
 use crate::rows::{
