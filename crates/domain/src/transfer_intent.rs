@@ -478,9 +478,9 @@ impl TransferIntent {
 
             (SourceConfirmed, RelayInProgress) => true,
             (SourceConfirmed, DestinationPending) => true,
-            (SourceConfirmed, MismatchDetected) => true,
-            (SourceConfirmed, Reconciling) => true,
-            (SourceConfirmed, ManualReview) => true,
+            (DestinationPending, Reconciling) => true,
+            (DestinationPending, MismatchDetected) => true,
+            (DestinationPending, ManualReview) => true,
 
             (RelayInProgress, SourceConfirmed) => true,
             (RelayInProgress, DestinationPending) => true,
@@ -492,9 +492,6 @@ impl TransferIntent {
             (RelayUnknown, MismatchDetected) => true,
             (RelayUnknown, Reconciling) => true,
             (RelayUnknown, ManualReview) => true,
-
-            (DestinationPending, Reconciling) => true,
-            (DestinationPending, ManualReview) => true,
 
             (MismatchDetected, Reconciling) => true,
             (MismatchDetected, ManualReview) => true,

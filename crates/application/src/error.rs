@@ -16,6 +16,8 @@ pub enum ApplicationError {
 
     #[error("transfer intent not found: {0}")] TransferNotFound(Uuid),
 
+    #[error("exception case not found for transfer: {0}")] ExceptionCaseNotFound(Uuid),
+
     #[error(transparent)] Domain(#[from] DomainError),
 
     #[error(transparent)] Persistence(PersistenceError),
@@ -28,6 +30,7 @@ impl From<PersistenceError> for ApplicationError {
             PersistenceError::IdempotencyConflict { scope, key } => {
                 Self::IdempotencyConflict { scope, key }
             }
+            PersistenceError::ExceptionCaseNotFound(id) => Self::ExceptionCaseNotFound(id),
             other => Self::Persistence(other),
         }
     }

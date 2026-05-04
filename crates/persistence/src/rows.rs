@@ -81,6 +81,7 @@ pub struct DbReconciliationRunRow {
 
 #[derive(Debug, Clone, FromRow)]
 pub struct DbExceptionCaseRow {
+    pub id: i64,
     pub transfer_id: Uuid,
     pub exception_classification: String,
     pub case_status: String,
@@ -88,7 +89,6 @@ pub struct DbExceptionCaseRow {
     pub created_at: DateTime<Utc>,
     pub resolved_at: Option<DateTime<Utc>>,
 }
-
 #[derive(Debug, Clone, FromRow)]
 pub struct DbAuditEventRow {
     pub transfer_id: Option<Uuid>,

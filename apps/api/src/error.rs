@@ -43,6 +43,9 @@ impl From<ApplicationError> for ApiError {
             ApplicationError::TransferNotFound(id) => {
                 Self::NotFound(format!("transfer intent not found: {id}"))
             }
+            ApplicationError::ExceptionCaseNotFound(id) => {
+                Self::NotFound(format!("exception case not found for transfer: {id}"))
+            }
             ApplicationError::Domain(err) => Self::BadRequest(err.to_string()),
             ApplicationError::Persistence(err) => Self::Internal(err.to_string()),
         }

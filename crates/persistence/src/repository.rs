@@ -62,6 +62,7 @@ pub struct SaveExceptionCaseInput {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoredExceptionCase {
+    pub case_id: i64,
     pub transfer_id: TransferId,
     pub classification: ExceptionClassification,
     pub case_status: String,
@@ -215,6 +216,111 @@ impl PostgresPersistence {
         let transfer = self.load_transfer_by_id_tx(&mut tx, transfer_id).await?;
         tx.commit().await?;
         Ok(transfer)
+    }
+
+    pub async fn list_exception_cases_by_transfer(
+        &self,
+        transfer_id: TransferId
+    ) -> Result<Vec<StoredExceptionCase>, PersistenceError> {
+        let rows = sqlx
+            ::query_as::<_, DbExceptionCaseRow>(
+                r#"
+            SELECT
+                id,
+                transfer_id,
+                exception_classification,
+                case_status,
+                note,
+                created_at,
+                resolved_at
+            FROM exception_cases
+            WHERE transfer_id = $1
+            ORDER BY created_at ASC
+            "#
+            )
+            .bind(transfer_id)
+            .fetch_all(&self.pool).await?;
+
+        rows.into_iter()
+            .map(|row| {
+                Ok(StoredExceptionCase {
+                    case_id: row.id,
+                    transfer_id: row.transfer_id,
+                    classification: exception_from_db(&row.exception_classification)?,
+                    case_status: row.case_status,
+                    note: row.note,
+                    created_at: row.created_at,
+                    resolved_at: row.resolved_at,
+                })
+            })
+            .collect()
+    }
+
+    pub async fn resolve_latest_open_exception_case(
+        &self,
+        transfer_id: TransferId,
+        resolution_note: Option<String>,
+        resolved_at: DateTime<Utc>
+    ) -> Result<StoredExceptionCase, PersistenceError> {
+        let mut tx = self.pool.begin().await?;
+
+        let row = sqlx
+            ::query_as::<_, DbExceptionCaseRow>(
+                r#"
+            UPDATE exception_cases
+            SET
+                case_status = 'resolved',
+                note = COALESCE($2, note),
+                resolved_at = $3
+            WHERE id = (
+                SELECT id
+                FROM exception_cases
+                WHERE transfer_id = $1
+                  AND case_status <> 'resolved'
+                ORDER BY created_at DESC
+                LIMIT 1
+            )
+            RETURNING
+                id,
+                transfer_id,
+                exception_classification,
+                case_status,
+                note,
+                created_at,
+                resolved_at
+            "#
+            )
+            .bind(transfer_id)
+            .bind(resolution_note.as_deref())
+            .bind(resolved_at)
+            .fetch_optional(&mut *tx).await?
+            .ok_or(PersistenceError::ExceptionCaseNotFound(transfer_id))?;
+
+        insert_audit_event_tx(
+            &mut tx,
+            Some(transfer_id),
+            "exception_case_resolved",
+            json!({
+                "case_id": row.id,
+                "classification": row.exception_classification,
+                "case_status": row.case_status,
+                "resolved_at": row.resolved_at,
+                "note": row.note,
+            }),
+            resolved_at
+        ).await?;
+
+        tx.commit().await?;
+
+        Ok(StoredExceptionCase {
+            case_id: row.id,
+            transfer_id: row.transfer_id,
+            classification: exception_from_db(&row.exception_classification)?,
+            case_status: row.case_status,
+            note: row.note,
+            created_at: row.created_at,
+            resolved_at: row.resolved_at,
+        })
     }
 
     pub async fn save_source_evidence(
@@ -558,11 +664,11 @@ impl PostgresPersistence {
     pub async fn save_exception_case(
         &self,
         input: SaveExceptionCaseInput
-    ) -> Result<(), PersistenceError> {
+    ) -> Result<StoredExceptionCase, PersistenceError> {
         let mut tx = self.pool.begin().await?;
 
-        sqlx
-            ::query(
+        let row = sqlx
+            ::query_as::<_, DbExceptionCaseRow>(
                 r#"
             INSERT INTO exception_cases (
                 transfer_id,
@@ -573,6 +679,14 @@ impl PostgresPersistence {
                 resolved_at
             )
             VALUES ($1,$2,$3,$4,$5,$6)
+            RETURNING
+                id,
+                transfer_id,
+                exception_classification,
+                case_status,
+                note,
+                created_at,
+                resolved_at
             "#
             )
             .bind(input.transfer_id)
@@ -581,24 +695,33 @@ impl PostgresPersistence {
             .bind(input.note.as_deref())
             .bind(input.created_at)
             .bind(input.resolved_at)
-            .execute(&mut *tx).await?;
+            .fetch_one(&mut *tx).await?;
 
         insert_audit_event_tx(
             &mut tx,
             Some(input.transfer_id),
             "exception_case_recorded",
             json!({
-                "classification": exception_to_db(&input.classification),
-                "case_status": input.case_status,
-                "resolved_at": input.resolved_at,
+                "case_id": row.id,
+                "classification": row.exception_classification,
+                "case_status": row.case_status,
+                "resolved_at": row.resolved_at,
             }),
             input.created_at
         ).await?;
 
         tx.commit().await?;
-        Ok(())
-    }
 
+        Ok(StoredExceptionCase {
+            case_id: row.id,
+            transfer_id: row.transfer_id,
+            classification: exception_from_db(&row.exception_classification)?,
+            case_status: row.case_status,
+            note: row.note,
+            created_at: row.created_at,
+            resolved_at: row.resolved_at,
+        })
+    }
     pub async fn get_receipt_by_id(
         &self,
         transfer_id: TransferId
@@ -642,6 +765,7 @@ impl PostgresPersistence {
                 .into_iter()
                 .map(|row| {
                     Ok(StoredExceptionCase {
+                        case_id: row.id,
                         transfer_id: row.transfer_id,
                         classification: exception_from_db(&row.exception_classification)?,
                         case_status: row.case_status,

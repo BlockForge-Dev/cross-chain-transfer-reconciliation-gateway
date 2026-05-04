@@ -4,12 +4,26 @@ mod routes;
 
 use std::{ env, net::SocketAddr };
 
-use application::{ RelayAttemptService, SourceEvidenceService, TransferIntentService };
+use application::{
+    DestinationEvidenceService,
+    ExceptionCaseService,
+    ReconciliationService,
+    RelayAttemptService,
+    SourceEvidenceService,
+    TransferIntentService,
+};
 use axum::{ routing::{ get, post }, Router };
 use persistence::{ connect, PostgresPersistence };
 use tracing::info;
 
 use crate::app_state::AppState;
+use crate::routes::destination_evidence::record_destination_evidence;
+use crate::routes::exception_cases::{
+    list_exception_cases,
+    open_exception_case,
+    resolve_exception_case,
+};
+use crate::routes::reconciliation::reconcile_transfer;
 use crate::routes::relay_attempts::{ begin_relay_attempt, finish_relay_attempt };
 use crate::routes::source_evidence::record_source_evidence;
 use crate::routes::transfer_intents::{ create_transfer_intent, get_transfer_intent };
@@ -35,12 +49,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let source_evidence_service = SourceEvidenceService::new(repo.clone());
-    let relay_attempt_service = RelayAttemptService::new(repo);
+    let relay_attempt_service = RelayAttemptService::new(repo.clone());
+    let destination_evidence_service = DestinationEvidenceService::new(repo.clone());
+    let reconciliation_service = ReconciliationService::new(repo.clone());
+    let exception_case_service = ExceptionCaseService::new(repo);
 
     let state = AppState {
         transfer_intent_service,
         source_evidence_service,
         relay_attempt_service,
+        destination_evidence_service,
+        reconciliation_service,
+        exception_case_service,
         api_bearer_token,
     };
 
@@ -50,6 +70,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/transfer-intents/{id}/source-evidence", post(record_source_evidence))
         .route("/transfer-intents/{id}/relay-attempts/start", post(begin_relay_attempt))
         .route("/transfer-intents/{id}/relay-attempts/finish", post(finish_relay_attempt))
+        .route("/transfer-intents/{id}/destination-evidence", post(record_destination_evidence))
+        .route("/transfer-intents/{id}/reconcile", post(reconcile_transfer))
+        .route(
+            "/transfer-intents/{id}/exception-cases",
+            get(list_exception_cases).post(open_exception_case)
+        )
+        .route("/transfer-intents/{id}/exception-cases/resolve", post(resolve_exception_case))
         .with_state(state);
 
     let addr: SocketAddr = bind_addr.parse()?;

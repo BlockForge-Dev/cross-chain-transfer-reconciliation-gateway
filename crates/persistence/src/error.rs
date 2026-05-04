@@ -14,6 +14,8 @@ pub enum PersistenceError {
         key: String,
     },
 
+    #[error("no unresolved exception case found for transfer: {0}")] ExceptionCaseNotFound(Uuid),
+
     #[error("invalid persisted transfer state: {0}")] InvalidPersistedState(String),
 
     #[error("invalid persisted failure classification: {0}")] InvalidFailureClassification(String),
